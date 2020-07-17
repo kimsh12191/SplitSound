@@ -1,1 +1,2 @@
-from .tf_base_model import *
+from .TRAIN import *
+from .FCN import *
