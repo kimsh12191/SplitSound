@@ -43,11 +43,19 @@ def get_melspectrogram(signal, fs, nfft):
 
 class GetTrainDataset(Dataset):
     # Initialize your data, download, etc. 
-    def __init__(self, dir_list): 
+    def __init__(self, dir_list, label_csv='./train_answer.csv', class_list=[]): 
         self.dir_list = np.sort(dir_list)
         self.len = self.dir_list.shape[0] 
-        label_df = pd.read_csv('./train_answer.csv')
-        self.label_bed = np.int32(label_df.bed.values!=0) # label bed 인 부분만 꺼내서 0이 아니면 1로지정
+        label_df = pd.read_csv(label_csv)
+        self.label_df = pd.read_csv('./train_answer.csv')
+        label = []
+        if len(class_list) > 0:
+            for label_name in class_list:
+                label.append(np.int32(label_df[label_name].values!=0)) # label bed 인 부분만 꺼내서 0이 아니면 1로지정
+        else:
+            for label_name in label_df.columns[1:]:
+                label.append(np.int32(label_df[label_name].values!=0)) # label bed 인 부분만 꺼내서 0이 아니면 1로지정
+        self.label = np.array(label) # (n_class, num_data)
         
         
     def __getitem__(self, index):
@@ -57,7 +65,7 @@ class GetTrainDataset(Dataset):
         w, h = mel_result.shape
         # pytorch input shape [channels, height, width]
         self.x_data = torch.from_numpy(mel_result[np.newaxis, :, :])  
-        self.y_data = torch.from_numpy(np.tile(self.label_bed[index, np.newaxis, np.newaxis], [1, w, h])[0]) 
+        self.y_data = torch.from_numpy(np.tile(np.tile(label[:, index, np.newaxis, np.newaxis], [1, 1, w, h])[0])) 
         
         return self.x_data, self.y_data # 현재의문사항 앞에 batch_size없어도되나?
     
@@ -73,5 +81,7 @@ class GetTrainDataset(Dataset):
 
         #print (mel_result_db.shape)
         return mel_result_db
+    
+    
     
     
