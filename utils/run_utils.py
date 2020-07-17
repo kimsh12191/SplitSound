@@ -65,7 +65,12 @@ class GetTrainDataset(Dataset):
         w, h = mel_result.shape
         # pytorch input shape [channels, height, width]
         self.x_data = torch.from_numpy(mel_result[np.newaxis, :, :])  
-        self.y_data = torch.from_numpy(np.tile(np.tile(label[:, index, np.newaxis, np.newaxis], [1, 1, w, h])[0])) 
+        
+        if np.sum(self.label[:, index]) == 0:
+            each_label = np.concatenate([[1], self.label[:, index]])
+        else:
+            each_label = np.concatenate([[0], self.label[:, index]])
+        self.y_data = torch.from_numpy(np.tile(each_label[:, np.newaxis, np.newaxis], [1, 1, w, h])[0])
         
         return self.x_data, self.y_data # 현재의문사항 앞에 batch_size없어도되나?
     
