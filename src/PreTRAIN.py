@@ -15,7 +15,7 @@ import tqdm
 import sys
 #import torchfcn
 
-class Trainer(object):
+class PreTrainer(object):
 
     def __init__(self, cuda, model, optimizer,
                  train_loader, val_loader, out, max_iter, n_class, 
@@ -71,9 +71,10 @@ class Trainer(object):
         for batch_idx, (data, target) in tqdm.notebook.tqdm(
                 enumerate(self.val_loader), total=len(self.val_loader),
                 desc='Valid iteration=%d' % self.iteration, leave=False):
+            # pretraining 을 위해서 target 에도 data를 넣어준다. 
             if self.cuda:
-                data, target = data.cuda(), target.cuda()
-            data, target = Variable(data), Variable(target).to(dtype=torch.long) # target data type 이슈
+                data, target = data.cuda(), data.cuda()
+            data, target = Variable(data), Variable(data)
             with torch.no_grad():
                 score = self.model(data)
 #             loss = self.cross_entropy2d(score, target,
@@ -90,16 +91,14 @@ class Trainer(object):
             fig = plt.figure(figsize=(10, 12))
             n, c, w, h = lbl_pred.shape
             
-            print (lbl_true[0, :, 0, 0])
+           
             pos_loc = list(np.where(lbl_true[0, :, 0, 0]==1)[0])
             neg_loc = list(np.where(lbl_true[0, :, 0, 0]==0)[0])
-            fig.add_subplot(3, len([pos_loc[0], neg_loc[0]])+1, 1)
+            fig.add_subplot(2, 1, 1)
             plt.imshow(imgs.numpy()[0, 0, :, :])
-            for i, label_loc in enumerate([pos_loc[0], neg_loc[0]]):
-                fig.add_subplot(3, len([pos_loc[0], neg_loc[0]])+1, i+2)
-                plt.imshow(lbl_pred[0, label_loc, :, :])
+            fig.add_subplot(2, 1, 2)
+            plt.imshow(lbl_pred[0, 0, :, :])
             plt.show()
-            
             
             for img, lt, lp in zip(imgs, lbl_true, lbl_pred):
                 label_trues.append(lt)
@@ -160,7 +159,7 @@ class Trainer(object):
             data, target = Variable(data), Variable(target).to(dtype=torch.long) # target data type 이슈
             self.optim.zero_grad()
             score = self.model(data)
-            loss = self.mse_loss(score, target,
+            loss = self.mse_loss(score, data,
 #             loss = self.cross_entropy2d(score, target,
                                    size_average=self.size_average)
             loss /= len(data)
@@ -206,21 +205,10 @@ class Trainer(object):
         # input data type 안맞으면 문제생김
         # expected dtype Double but got dtype Float
         n, c, h, w = input.size()
-        loss_each_channel = []
-#         input_reshape = input.view(n, c, -1).to(torch.float32)
-#         target_reshape = target.view(n, c, -1).to(torch.float32)
-#         for i in range(c):
-            
-#             loss = F.mse_loss(input_reshape[:, i, :], target_reshape[:, i, :]) 
-#             loss_each_channel.append(loss)
+        loss = F.mse_loss(input.view(n, -1).to(torch.float32), target.view(n, -1).to(torch.float32)) 
 #         if size_average:
 #             loss /= target.data.sum()
-        input_reshape = input.view(n, -1).to(torch.float32)
-        target_reshape = target.view(n,-1).to(torch.float32)
-        
-        loss = F.mse_loss(input_reshape*target_reshape, target_reshape) 
-        loss_each_channel.append(loss)
-        return torch.mean(torch.stack(loss_each_channel, dim=0))
+        return loss
     
     def cross_entropy2d(self, input, target, weight=None, size_average=True):
         # input: (n, c, h, w), 

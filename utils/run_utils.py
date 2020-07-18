@@ -35,7 +35,7 @@ def get_melspectrogram(signal, fs, nfft):
     hop_length = int(fs/nfft)
     n_mles = nfft/2
     mel_result = librosa.feature.melspectrogram(y=np.float32(signal), sr=fs, n_mels=n_mles, hop_length=hop_length) # melspectrogram 
-    mel_result_db = librosa.power_to_db(mel_result, ref=np.max) # 데시벨로 데이터 범위 한정 (로그를씌웟나 그랫던거같음)
+    mel_result_db = librosa.power_to_db(mel_result) # 데시벨로 데이터 범위 한정 (로그를씌웟나 그랫던거같음)
     
     #print (mel_result_db.shape)
     return mel_result_db
@@ -51,17 +51,17 @@ class GetTrainDataset(Dataset):
         label = []
         if len(class_list) > 0:
             for label_name in class_list:
-                label.append(np.int32(label_df[label_name].values!=0)) # label bed 인 부분만 꺼내서 0이 아니면 1로지정
+                label.append(np.int32(label_df[label_name].values!=0)) # label name에서 값이 있는 부분만 1로지정
         else:
             for label_name in label_df.columns[1:]:
-                label.append(np.int32(label_df[label_name].values!=0)) # label bed 인 부분만 꺼내서 0이 아니면 1로지정
+                label.append(np.int32(label_df[label_name].values!=0)) # label name에서 값이 있는 부분만 1로지정
         self.label = np.array(label) # (n_class, num_data)
         
         
     def __getitem__(self, index):
         # get item이 호출될 때, directory 에서 파일 로드해서 melspectrogram 연산
         fs, signal = wavfile.read(self.dir_list[index])
-        mel_result = get_melspectrogram(signal, fs=fs, nfft=160)
+        mel_result = get_melspectrogram(signal, fs=fs, nfft=640)
         w, h = mel_result.shape
         # pytorch input shape [channels, height, width]
         self.x_data = torch.from_numpy(mel_result[np.newaxis, :, :])  
@@ -70,6 +70,8 @@ class GetTrainDataset(Dataset):
             each_label = np.concatenate([[1], self.label[:, index]])
         else:
             each_label = np.concatenate([[0], self.label[:, index]])
+        
+#         each_label = self.label[:, index]
         self.y_data = torch.from_numpy(np.tile(each_label[:, np.newaxis, np.newaxis], [1, 1, w, h])[0])
         
         return self.x_data, self.y_data # 현재의문사항 앞에 batch_size없어도되나?
