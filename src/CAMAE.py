@@ -3,9 +3,9 @@
 
 import torch.nn as nn
 import torch
-class FCN8s(nn.Module):
+class CAMAE8s(nn.Module):
     def __init__(self, n_class=2):
-        super(FCN8s, self).__init__()
+        super(CAMAE8s, self).__init__()
         # conv1
                 
         self.conv_block1 = nn.Sequential(
@@ -79,30 +79,19 @@ class FCN8s(nn.Module):
             nn.ReLU(inplace=True),
         )
         self.relu    = nn.ReLU(inplace=True)
-        self.score_fr = nn.Conv2d(1024, 256, 1)
-#         self.bn_fr     = nn.BatchNorm2d(n_class)
-        self.score_pool3 = nn.Conv2d(256, 256, 1)
-#         self.bn_score3     = nn.BatchNorm2d(n_class)
-        self.score_pool4 = nn.Conv2d(256, 256, 1)
-#         self.bn_score4    = nn.BatchNorm2d(n_class)
+        self.score_fr = nn.Conv2d(1024, n_class, 1)
+        self.bn_fr     = nn.BatchNorm2d(n_class)
+        self.score_pool3 = nn.Conv2d(256, n_class, 1)
+        self.bn_score3     = nn.BatchNorm2d(n_class)
+        self.score_pool4 = nn.Conv2d(256, n_class, 1)
+        self.bn_score4    = nn.BatchNorm2d(n_class)
         self.upscore2 = nn.ConvTranspose2d(
-            256, 256, 4, stride=2, bias=False)
+            n_class, n_class, 4, stride=2, bias=False)
         self.upscore8 = nn.ConvTranspose2d(
-            256, 256, 16, stride=8, bias=False)
+            n_class, n_class, 16, stride=8, bias=False)
         self.upscore_pool4 = nn.ConvTranspose2d(
-            256, 256, 4, stride=2, bias=False)
+            n_class, n_class, 4, stride=2, bias=False)
         self.softmax = nn.Softmax(dim=1)
-        self.out_conv = nn.Sequential(
-            nn.Conv2d(256, 256, 1),
-#             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 1),
-#             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, n_class, 1),
-#             nn.BatchNorm2d(n_class),
-#             nn.ReLU(inplace=True),
-        )
         self._initialize_weights()
         
     def _initialize_weights(self):
@@ -153,6 +142,6 @@ class FCN8s(nn.Module):
         h = upscore_pool4 + score_pool3c  # 1/8
 
         h = self.upscore8(h)
-        h = h[:, :, 25:25 + x.size()[2], 25:25 + x.size()[3]].contiguous()
-        h = self.out_conv(h)
-        return h, torch.nn.Softmax(dim=1)(h)
+        h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
+        out = self.softmax(h)
+        return h
