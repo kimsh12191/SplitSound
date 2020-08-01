@@ -80,7 +80,7 @@ class FCNTrainer(object):
             with torch.no_grad():
                 score, score_softmax = self.model(data)
 #             loss = self.cross_entropy2d(score, target,
-            loss = self.loss_fcn(score_softmax, target, data,
+            loss = self.loss_fcn(score, target, data,
                                   size_average=self.size_average)
             loss_data = loss.data.item()
             if np.isnan(loss_data):
@@ -143,7 +143,7 @@ class FCNTrainer(object):
 
     def train_epoch(self):
         self.model.train()
-        iteration = 0
+        
         n_class = self.n_class
             # for jupyter notebook (tqdm.notebook.tqdm)
         for batch_idx, (data, target) in tqdm.notebook.tqdm(
@@ -153,9 +153,9 @@ class FCNTrainer(object):
 #                 if np.mean(target.cpu().numpy()[0, 0]) >= 1:
 #                     continue
 #             iteration = batch_idx + self.epoch * len(self.train_loader)
-            if self.iteration != 0 and (iteration - 1) != self.iteration:
-                continue  # for resuming
-            self.iteration = iteration
+#             if self.iteration != 0 and (iteration - 1) != self.iteration:
+#                 continue  # for resuming
+#             self.iteration = iteration
         
             if self.iteration % self.interval_validate == 0:
                 self.validate()
@@ -167,14 +167,14 @@ class FCNTrainer(object):
             data, target = Variable(data), Variable(target).to(dtype=torch.long) # target data type 이슈
             self.optim.zero_grad()
             score, score_softmax = self.model(data)
-            fcn_loss = self.loss_fcn(score_softmax, target, data,
+            fcn_loss = self.loss_fcn(score, target, data,
                                    size_average=self.size_average)
 #             reconst_loss = self.reconst_loss(score, data, target,
 #                                    size_average=self.size_average)
             l2_regul = self.regularizer(self.model)
             loss = fcn_loss+0.01*l2_regul
             loss_data = loss.data.item()
-            sys.stdout.write('\r iteration : {0}, loss : {1:>20s}'.format(iteration, str(np.round(loss_data, decimals=4))))
+            sys.stdout.write('\r iteration : {0}, loss : {1:>20s}'.format(self.iteration, str(np.round(loss_data, decimals=4))))
             if np.isnan(loss_data):
                 raise ValueError('loss is nan while training')
             loss.backward()
@@ -196,7 +196,7 @@ class FCNTrainer(object):
             
             if self.iteration >= self.max_iter:
                 break
-            iteration += 1
+            self.iteration += 1
     def train(self):
         max_epoch = int(math.ceil(1. * self.max_iter / len(self.train_loader)))
         
@@ -223,9 +223,9 @@ class FCNTrainer(object):
         input_reshape = input.view(n, -1, c).to(torch.float32)
         target_reshape = target.view(n, -1, c).to(torch.float32)
         reconst_target_reshape = reconst_target.view(n, -1, 1).to(torch.float32)
-        loss = torch.nn.KLDivLoss(reduction = 'sum')(input_reshape.log(), target_reshape*reconst_target_reshape)
-        #loss_target = torch.nn.KLDivLoss(reduction = 'sum')(input_reshape*target_reshape, target_reshape*reconst_target_reshape)
-        return loss/n
+        loss = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape, dim=2), target_reshape*reconst_target_reshape)
+        loss_target = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape*target_reshape, dim=2), target_reshape*reconst_target_reshape)
+        return loss/n + loss_target/n
 # +loss_target/n
     
     def regularizer(self, model):

@@ -103,6 +103,8 @@ class FCN8s(nn.Module):
 #             nn.BatchNorm2d(n_class),
 #             nn.ReLU(inplace=True),
         )
+        
+        
         self._initialize_weights()
         
     def _initialize_weights(self):

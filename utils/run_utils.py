@@ -32,12 +32,10 @@ class DictToObject(object):
 
 class GetTrainDataset(Dataset):
     # Initialize your data, download, etc. 
-    def __init__(self, dir_list, label_csv='./train_answer.csv', class_list=[], label_image=True): 
+    def __init__(self, dir_list, label_df, class_list=[], label_image=True, ): 
         self.dir_list = np.sort(dir_list)
         self.len = self.dir_list.shape[0] 
         self.label_image = label_image
-        label_df = pd.read_csv(label_csv)
-        self.label_df = pd.read_csv('./train_answer.csv')
         label = []
         if len(class_list) > 0:
             for label_name in class_list:
