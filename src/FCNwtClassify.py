@@ -105,26 +105,25 @@ class FCN8swtClassify(nn.Module):
 #             nn.ReLU(inplace=True),
         )
         self.classifier_conv = nn.Sequential(
-            nn.Conv2d(n_class, 256, 3),
-#             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(1, 64, 3),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
             nn.MaxPool2d(2, stride=2, ceil_mode=True),
-            nn.Conv2d(256, 256, 3),
-#             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 128, 3),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
             nn.MaxPool2d(2, stride=2, ceil_mode=True),
-            nn.Conv2d(256, 256, 3),
-#             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, 3),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
             nn.MaxPool2d(2, stride=2, ceil_mode=True)
             
         )
         self.classifier = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(128, 256),
 #             nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, n_class),
-#             nn.Tanh(),
+            nn.ReLU(),
+            nn.Linear(256, 1),
         )
         
         self._initialize_weights()
@@ -134,15 +133,15 @@ class FCN8swtClassify(nn.Module):
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    m.bias.data.fill_(0.01)
+                    m.bias.data.fill_(1)
             if isinstance(m, nn.ConvTranspose2d):
                 torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    m.bias.data.fill_(0.01)
+                    m.bias.data.fill_(1)
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
-                    m.bias.data.fill_(0.01)
+                    m.bias.data.fill_(1)
     def forward(self, x):
         h = x
         h = self.conv_block1(h)
@@ -188,8 +187,8 @@ class FCN8swtClassify(nn.Module):
             _max = torch.max(softmax_h)
             _min = torch.min(softmax_h)
             norm_result = (softmax_h-_min)/(_max-_min)
-        feature = self.classifier_conv(norm_result*x)
-        n_batch, _, width, height = feature.shape
+        feature = self.classifier_conv((norm_result*x).transpose(0, 1))
+        n_class, _, width, height = feature.shape
         feature = nn.MaxPool2d(width, height)(feature)
-        output = self.classifier(feature.view(n_batch, -1))
+        output = self.classifier(feature.view(n_class, -1)).transpose(0, 1)
         return output, h, norm_result

@@ -94,7 +94,7 @@ class FCNTrainerClassify(object):
             fig = plt.figure(figsize=(10, 12))
             n, c, w, h = lbl_pred.shape
             score = torch.nn.Sigmoid()(score)
-            print (score[0])
+            print (score)
             print (lbl_true[0, :, 0, 0])
             pos_loc = list(np.where(lbl_true[0, :, 0, 0]==1)[0])
             neg_loc = list(np.where(lbl_true[0, :, 0, 0]==0)[0])
@@ -184,6 +184,7 @@ class FCNTrainerClassify(object):
                 raise ValueError('loss is nan while training')
             loss.backward()
             self.optim.step()
+            
 
             metrics = []
             lbl_pred = score.data.cpu().numpy()
@@ -221,15 +222,15 @@ class FCNTrainerClassify(object):
         n, c, h, w = input_reconst.size()
         target = target.transpose(1, 2).transpose(2, 3).contiguous()
         input_reconst = input_reconst.transpose(1, 2).transpose(2, 3).contiguous()
-        input_class_reshape = input_class.view(n, -1, c).to(torch.float32)
+#         input_class_reshape = input_class.view(n, -1, c).to(torch.float32)
         input_reconst_reshape = input_reconst.view(n, -1, c).to(torch.float32)
         target_reshape = target.view(n, -1, c).to(torch.float32)
         target_reconst = target_reconst.transpose(1, 2).transpose(2, 3).contiguous()
         target_reconst_reshape = target_reconst.view(n, -1, 1).to(torch.float32)
-        loss = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')((input_class).to(torch.float32), target_reshape[:, 0, :].view(n, c))
-        lossKL = torch.nn.KLDivLoss(reduction = 'batchmean')((torch.nn.Sigmoid()(input_reconst_reshape)).log(), target_reshape)
+        loss = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')((input_class).to(torch.float32), target_reshape[:, 0, :].view(-1, c))
+        lossKL = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reconst_reshape, dim=2), F.softmax(target_reshape, dim=2))
 #         lossKL = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')(input_reconst_reshape.view(-1, c), target_reshape.view(-1, c))
-        return loss , lossKL/(320*160)
+        return loss , lossKL/(h*w)
 
 
     def regularizer(self, model):
