@@ -223,9 +223,9 @@ class FCNTrainer(object):
         input_reshape = input.view(n, -1, c).to(torch.float32)
         target_reshape = target.view(n, -1, c).to(torch.float32)
         reconst_target_reshape = reconst_target.view(n, -1, 1).to(torch.float32)
-        loss = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape, dim=2), target_reshape*reconst_target_reshape)
-        loss_target = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape*target_reshape, dim=2), target_reshape*reconst_target_reshape)
-        return loss/n + loss_target/n
+        loss = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape, dim=2), F.softmax(target_reshape, dim=2))
+#         loss_target = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reshape*target_reshape, dim=2), F.softmax(target_reshape*reconst_target_reshape, dim=2))
+        return loss/n
 # +loss_target/n
     
     def regularizer(self, model):

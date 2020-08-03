@@ -104,17 +104,29 @@ class FCN8swtClassify(nn.Module):
 #             nn.BatchNorm2d(n_class),
 #             nn.ReLU(inplace=True),
         )
-        self.classifier = nn.Sequential(
-            nn.Conv2d(n_class, 256, 1),
-            nn.BatchNorm2d(256),
+        self.classifier_conv = nn.Sequential(
+            nn.Conv2d(n_class, 256, 3),
+#             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, 1),
-            nn.BatchNorm2d(256),
+            nn.MaxPool2d(2, stride=2, ceil_mode=True),
+            nn.Conv2d(256, 256, 3),
+#             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, n_class, 1),
-            nn.BatchNorm2d(n_class),
-            nn.Sigmoid(),
+            nn.MaxPool2d(2, stride=2, ceil_mode=True),
+            nn.Conv2d(256, 256, 3),
+#             nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(2, stride=2, ceil_mode=True)
+            
         )
+        self.classifier = nn.Sequential(
+            nn.Linear(256, 256),
+#             nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, n_class),
+#             nn.Tanh(),
+        )
+        
         self._initialize_weights()
         
     def _initialize_weights(self):
@@ -124,6 +136,10 @@ class FCN8swtClassify(nn.Module):
                 if m.bias is not None:
                     m.bias.data.fill_(0.01)
             if isinstance(m, nn.ConvTranspose2d):
+                torch.nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    m.bias.data.fill_(0.01)
+            if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     m.bias.data.fill_(0.01)
@@ -167,8 +183,13 @@ class FCN8swtClassify(nn.Module):
         h = self.upscore8(h)
         h = h[:, :, 25:25 + x.size()[2], 25:25 + x.size()[3]].contiguous()
         h = self.out_conv(h)
-        _max = torch.max(torch.nn.Softmax(dim=1)(h))
-        _min = torch.min(torch.nn.Softmax(dim=1)(h))
-        norm_result = (torch.nn.Softmax(dim=1)(h)-_min)/(_max-_min)
-        output = self.classifier(norm_result*x)
+        with torch.no_grad():
+            softmax_h = torch.nn.Softmax(dim=1)(h)
+            _max = torch.max(softmax_h)
+            _min = torch.min(softmax_h)
+            norm_result = (softmax_h-_min)/(_max-_min)
+        feature = self.classifier_conv(norm_result*x)
+        n_batch, _, width, height = feature.shape
+        feature = nn.MaxPool2d(width, height)(feature)
+        output = self.classifier(feature.view(n_batch, -1))
         return output, h, norm_result
