@@ -174,8 +174,8 @@ class FCNTrainerClassify(object):
                                    size_average=self.size_average)
 #             reconst_loss = self.reconst_loss(score, data, target,
 #                                    size_average=self.size_average)
-            l2_regul = self.regularizer(self.model)
-            loss = 0.01*l2_regul+class_loss+reconst_loss
+#             l2_regul = self.regularizer(self.model)
+            loss = class_loss+reconst_loss
             loss_data = loss.data.item()
             class_loss_data = class_loss.data.item()
             reconst_loss_data = reconst_loss.data.item()
@@ -228,9 +228,21 @@ class FCNTrainerClassify(object):
         target_reconst = target_reconst.transpose(1, 2).transpose(2, 3).contiguous()
         target_reconst_reshape = target_reconst.view(n, -1, 1).to(torch.float32)
         loss = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')((input_class).to(torch.float32), target_reshape[:, 0, :].view(-1, c))
-        lossKL = torch.nn.KLDivLoss(reduction = 'batchmean')(F.log_softmax(input_reconst_reshape, dim=2), F.softmax(target_reshape, dim=2))
+        lossT = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum', weight=target_reshape[:, 0, :].view(c))((input_class).to(torch.float32), target_reshape[:, 0, :].view(-1, c))
+#         input_matrix = input_class.view(c, c)
+#         target_matrix = torch.diag(target_reshape[:, 0, :].view(c)).view(c, c)
+#         loss = 0
+#         for i in range(c):
+#             loss += torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')(input_matrix[i].view(-1, c),\
+#                                                                           target_matrix[i].view(-1, c))
+#             loss += torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')(input_matrix[i].view(-1, c)*target_matrix[i].view(-1, c),\
+#                                                                           target_matrix[i].view(-1, c))
+            
+        lossKL = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')((input_reconst_reshape), (target_reshape))
+        lossKL_target = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')((input_reconst_reshape*target_reshape), (target_reshape))
 #         lossKL = torch.nn.MultiLabelSoftMarginLoss(reduction = 'sum')(input_reconst_reshape.view(-1, c), target_reshape.view(-1, c))
-        return loss , lossKL/(h*w)
+        return loss+lossT, (lossKL+lossKL_target)/(h*w)
+
 
 
     def regularizer(self, model):

@@ -123,7 +123,7 @@ class FCN8swtClassify(nn.Module):
             nn.Linear(128, 256),
 #             nn.BatchNorm1d(256),
             nn.ReLU(),
-            nn.Linear(256, 1),
+            nn.Linear(256, n_class),
         )
         
         self._initialize_weights()
@@ -183,12 +183,13 @@ class FCN8swtClassify(nn.Module):
         h = h[:, :, 25:25 + x.size()[2], 25:25 + x.size()[3]].contiguous()
         h = self.out_conv(h)
         with torch.no_grad():
-            softmax_h = torch.nn.Softmax(dim=1)(h)
-            _max = torch.max(softmax_h)
-            _min = torch.min(softmax_h)
-            norm_result = (softmax_h-_min)/(_max-_min)
+            sigmoid_h = torch.nn.Sigmoid()(h)
+#             _max = torch.max(softmax_h)
+#             _min = torch.min(softmax_h)
+            norm_result = sigmoid_h
+#             norm_result = torch.where(norm_result > 0.4, norm_result, torch.zeros(norm_result.size()).cuda())
         feature = self.classifier_conv((norm_result*x).transpose(0, 1))
         n_class, _, width, height = feature.shape
         feature = nn.MaxPool2d(width, height)(feature)
-        output = self.classifier(feature.view(n_class, -1)).transpose(0, 1)
+        output = torch.diag(self.classifier(feature.view(n_class, -1)), 0).view(-1, n_class)
         return output, h, norm_result
